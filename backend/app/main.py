@@ -7,17 +7,38 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "review_items.json"
 
 ReviewAction = Literal["claim", "approve", "reject", "escalate"]
 
+TERMINAL_STATUSES = frozenset({"approved", "rejected", "escalated"})
+
+RISK_RANK = {"high": 0, "medium": 1, "low": 2}
+TIER_RANK = {"priority": 0, "standard": 1}
+
+
+def queue_sort_key(item: dict) -> tuple[int, int, str]:
+    return (
+        RISK_RANK.get(item["risk_level"], 99),
+        TIER_RANK.get(item["customer_tier"], 99),
+        item["submitted_at"],
+    )
+
+
+ALLOWED_TRANSITIONS: dict[str, dict[str, str]] = {
+    "claim": {"unassigned": "in_review"},
+    "approve": {"in_review": "approved"},
+    "reject": {"in_review": "rejected"},
+    "escalate": {"in_review": "escalated"},
+}
+
 
 class ActionRequest(BaseModel):
     action: ReviewAction
-    reviewer: str = "alex"
+    reviewer: str = Field(default="alex", min_length=1)
 
 
 app = FastAPI(title="Reviewer Queue API")
@@ -56,9 +77,9 @@ async def list_review_items(active_only: bool = True) -> dict:
     items = deepcopy(ITEMS)
 
     if active_only:
-        items = [item for item in items if item["status"] != "approved"]
+        items = [item for item in items if item["status"] not in TERMINAL_STATUSES]
 
-    items.sort(key=lambda item: item["submitted_at"], reverse=True)
+    items.sort(key=queue_sort_key)
     return {"items": items}
 
 
@@ -72,17 +93,21 @@ async def get_review_item(item_id: str) -> dict:
 async def apply_action(item_id: str, request: ActionRequest) -> dict:
     item = find_item(item_id)
 
+    transitions = ALLOWED_TRANSITIONS[request.action]
+    next_status = transitions.get(item["status"])
+    if next_status is None:
+        allowed = sorted(transitions)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot {request.action} an item with status '{item['status']}'. "
+                f"Allowed from: {allowed}."
+            ),
+        )
+
+    item["status"] = next_status
     if request.action == "claim":
-        if item["status"] in {"approved", "rejected", "escalated"}:
-            raise HTTPException(status_code=409, detail="This item cannot be claimed")
-        item["status"] = "in_review"
         item["assigned_reviewer"] = request.reviewer
-    elif request.action in {"approve", "reject", "escalate"}:
-        if item["status"] == "approved":
-            raise HTTPException(status_code=409, detail="This item has already been approved")
-        item["status"] = status_for_action(request.action)
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported action")
 
     return {"item": deepcopy(item)}
 
@@ -92,13 +117,3 @@ def find_item(item_id: str) -> dict:
         if item["id"] == item_id:
             return item
     raise HTTPException(status_code=404, detail="Review item not found")
-
-
-def status_for_action(action: ReviewAction) -> str:
-    if action == "approve":
-        return "approved"
-    if action == "reject":
-        return "rejected"
-    if action == "escalate":
-        return "escalated"
-    return "in_review"

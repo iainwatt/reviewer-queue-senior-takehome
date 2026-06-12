@@ -42,8 +42,25 @@ const selectedItem = computed(() =>
   items.value.find((item) => item.id === selectedId.value) ?? items.value[0] ?? null
 );
 
-const availableActions = computed<ReviewAction[]>(() =>
-  selectedItem.value ? ALLOWED_ACTIONS_BY_STATUS[selectedItem.value.status] : []
+const availableActions = computed<ReviewAction[]>(() => {
+  const item = selectedItem.value;
+  if (!item) return [];
+
+  const actions = ALLOWED_ACTIONS_BY_STATUS[item.status];
+
+  // Only the reviewer who claimed an item may act on it (mirrors the backend).
+  // Claiming is still allowed since the item has no owner yet.
+  if (item.assigned_reviewer && item.assigned_reviewer !== currentReviewer) {
+    return actions.filter((action) => action === "claim");
+  }
+
+  return actions;
+});
+
+const ownedByOther = computed(
+  () =>
+    Boolean(selectedItem.value?.assigned_reviewer) &&
+    selectedItem.value?.assigned_reviewer !== currentReviewer
 );
 
 async function loadItems() {
@@ -179,7 +196,10 @@ onMounted(loadItems);
           >
             {{ pendingAction === action ? "Working..." : ACTION_LABELS[action] }}
           </button>
-          <p v-if="availableActions.length === 0" class="no-actions">
+          <p v-if="availableActions.length === 0 && ownedByOther" class="no-actions">
+            Claimed by {{ selectedItem.assigned_reviewer }}. Only the assigned reviewer can act on this item.
+          </p>
+          <p v-else-if="availableActions.length === 0" class="no-actions">
             No actions available for this item.
           </p>
         </div>

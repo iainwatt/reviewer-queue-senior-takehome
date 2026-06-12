@@ -108,7 +108,37 @@ class TestDecisionActions:
         ],
     )
     def test_can_decide_in_review_item(self, action: str, expected_status: str) -> None:
-        response = call_action("RV-1028", action)
+        # RV-1028 is assigned to morgan, so morgan is the one who may decide it.
+        response = call_action("RV-1028", action, reviewer="morgan")
+
+        assert response["item"]["status"] == expected_status
+
+    @pytest.mark.parametrize("action", ["approve", "reject", "escalate"])
+    def test_cannot_decide_item_claimed_by_another_reviewer(self, action: str) -> None:
+        # RV-1028 is in_review and assigned to morgan; alex must not be able to act on it.
+        assert get_item("RV-1028")["assigned_reviewer"] == "morgan"
+
+        with pytest.raises(HTTPException) as exc_info:
+            call_action("RV-1028", action, reviewer="alex")
+
+        assert exc_info.value.status_code == 403
+        assert get_item("RV-1028")["status"] == "in_review"
+
+    @pytest.mark.parametrize(
+        "action,expected_status",
+        [
+            ("approve", "approved"),
+            ("reject", "rejected"),
+            ("escalate", "escalated"),
+        ],
+    )
+    def test_assigned_reviewer_can_decide_own_item(
+        self, action: str, expected_status: str
+    ) -> None:
+        # RV-1030 is in_review and assigned to alex in the seed data.
+        assert get_item("RV-1030")["assigned_reviewer"] == "alex"
+
+        response = call_action("RV-1030", action, reviewer="alex")
 
         assert response["item"]["status"] == expected_status
 

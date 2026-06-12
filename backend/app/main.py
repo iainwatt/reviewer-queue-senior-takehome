@@ -105,6 +105,17 @@ async def apply_action(item_id: str, request: ActionRequest) -> dict:
             ),
         )
 
+    # TAKEHOME: Only the reviewer who claimed an item may act on it. Without this
+    # check any reviewer could approve/reject/escalate work owned by someone else.
+    if request.action != "claim" and item["assigned_reviewer"] != request.reviewer:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Cannot {request.action} an item claimed by "
+                f"'{item['assigned_reviewer']}'. Only the assigned reviewer may act on it."
+            ),
+        )
+
     item["status"] = next_status
     if request.action == "claim":
         item["assigned_reviewer"] = request.reviewer

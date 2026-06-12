@@ -117,8 +117,110 @@ h2 {
 }
 
 .queue-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   color: #162033;
   font-weight: 700;
+}
+
+/* Highlight items assigned to the current reviewer */
+.queue-item.mine {
+  background: #f0f6ff;
+}
+
+.queue-item.mine.selected,
+.queue-item.mine:hover {
+  background: #e3eeff;
+}
+
+.mine-badge {
+  display: inline-block;
+  border-radius: 999px;
+  background: #1e55bd;
+  padding: 2px 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Color-coded risk flags: red = high, orange = medium, green = low */
+.queue-item {
+  border-left: 4px solid transparent;
+}
+
+.queue-item.risk-high {
+  border-left-color: #d92d20;
+}
+
+.queue-item.risk-medium {
+  border-left-color: #e08600;
+}
+
+.queue-item.risk-low {
+  border-left-color: #2e9e5b;
+}
+
+/* Detail panel top border reflects the selected item's risk color */
+.detail-panel {
+  border-top-width: 4px;
+}
+
+.detail-panel.risk-high {
+  border-top-color: #d92d20;
+}
+
+.detail-panel.risk-medium {
+  border-top-color: #e08600;
+}
+
+.detail-panel.risk-low {
+  border-top-color: #2e9e5b;
+}
+
+.risk-flag {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.risk-flag-high {
+  background: #d92d20;
+}
+
+.risk-flag-medium {
+  background: #e08600;
+}
+
+.risk-flag-low {
+  background: #2e9e5b;
+}
+
+.risk-badge {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.risk-badge-high {
+  background: #fde4e2;
+  color: #b42318;
+}
+
+.risk-badge-medium {
+  background: #fdf0dc;
+  color: #b35c00;
+}
+
+.risk-badge-low {
+  background: #e3f5ea;
+  color: #1f7a45;
 }
 
 .queue-meta {
@@ -206,6 +308,25 @@ dd {
 .actions button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.no-actions {
+  margin: 0;
+  color: #66758a;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-state p {
+  color: #66758a;
 }
 
 @media (max-width: 760px) {
